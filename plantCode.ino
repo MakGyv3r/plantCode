@@ -20,7 +20,23 @@
 //sleep memory 
 RTC_DATA_ATTR uint8_t macRouter[6];
 RTC_DATA_ATTR String plantIdNumber;
-RTC_DATA_ATTR bool autoIrrigateState;
+
+//sleep memory auto Irrigate
+RTC_DATA_ATTR bool autoIrrigateState=false;
+RTC_DATA_ATTR bool timeDelayWaterPump=3600000;
+RTC_DATA_ATTR bool timedelay_hum=5000;
+RTC_DATA_ATTR bool waterPumpOnTime=0;
+RTC_DATA_ATTR bool timeLength=0;
+RTC_DATA_ATTR bool timeLength2=0;
+
+//autoIrrigate
+  static const int numReadings = 10;
+  int humvalue[numReadings];     // the readings from the analog hum input
+  int humIndex = 0;              // the index of the current reading
+  float total = 0;               // the running total
+  int humAverage = 0;            // the average
+  int pin;                       // reading pin
+
 
 //need to go RTCmemory
 //const char * const   VERSION_STRING = "0.1";
@@ -32,10 +48,6 @@ RTC_DATA_ATTR bool autoIrrigateState;
 int timeAWake=100; 
 char macStr[18];
 uint8_t macGet[6];
-
-//config the autoWatering
-  auto_watering_plan  autoWatering;
-  int resultTestLoop;
   
 //sensor calling
   sensor moistureSensor;//moisture sensor calling
@@ -46,8 +58,8 @@ uint8_t macGet[6];
   motor waterMotor_AIN1 ;
 
 //irrigatePlant difrent plan options  veribale
- int irrigatePlantOptionTime=0;
- int irrigatePlantOptionsTimeCheck;
+  int irrigatePlantOptionTime;
+  int irrigatePlantOptionsTimeCheck;
 
 //struct of veribales that are received from router
 typedef struct receiveDataStruct{ 
@@ -121,9 +133,7 @@ void setup() {
   lightSensor.init_input(); 
   waterSensor.set_comp( 35 ,"waterlevel", 35);
   waterSensor.init_input(); 
-  autoWatering.testSetup(34) ;
-  
-  waterSensor.readingSetup();
+ // waterSensor.readingSetup();
 
   //Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
@@ -134,19 +144,17 @@ void setup() {
   
   esp_now_register_recv_cb(onReceiveData);
   esp_now_register_send_cb(OnDataSent);
+
+      //Set timer to 5 seconds
+   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+   
 }
 
 void loop() {
-  testingMotorWaterState (); 
-  if(autoWatering.autoWateringEnable == true)
-  {
-    resultTestLoop=autoWatering.testLoop();
-    if(resultTestLoop == 1)
-      waterMotor_AIN1.motorModeChange(true);
-    if(resultTestLoop == 0) 
-      waterMotor_AIN1.motorModeChange(false);
-//      sendMotorStartStopWorking ();  
-  }
+  if(waterMotor_AIN1.motorMode== true)
+      testingMotorWaterState (); 
+  if(autoIrrigateState == true)
+     autoIrrigateStateTestLoop();
   if(irrigatePlantOptionTime != 0 ){
     if(millis()-irrigatePlantOptionsTimeCheck>=irrigatePlantOptionTime){
       irrigatePlantOptionTime=0;
@@ -155,23 +163,13 @@ void loop() {
       sendMotorStartStopWorking ();
     }
   }
+  if(waterMotor_AIN1.motorMode== false ) {
+      Serial.println("going to sleep");// need to delet when it is started
+      esp_deep_sleep_start();
+  }
 }
 
-void six_motorStopStart() {
-    if(receiveData.motorState== false){
-      waterMotor_AIN1.motorModeChange(false);
-      sendMotorStartStopWorking ();
-    }
-    if(receiveData.motorState == true){
-      waterMotor_AIN1.motor_current_Sub(receiveData.motorCurrentSub);//need to save it to the rtc memory
-      waterMotor_AIN1.readingsBefore= waterSensor.readingResults();
-      delay(50);
-      waterMotor_AIN1.motorModeChange(true);
-      delay(100);
-      testingMotorWaterState ();  
-      sendMotorStartStopWorking ();
-     } 
-}
+
 
 void eight_checkUpdateProgrem(){
 //  if(receiveData.versuionNumber>VERSION_NUMBER){
@@ -195,19 +193,6 @@ void eight_checkUpdateProgrem(){
 //      delay(30);
 //      }
 //  }
-}
-void sendMotorStartStopWorking (){
-  sentData.task=4;
-  if ((waterMotor_AIN1.motorMode== false)&&(waterSensor.showState()==false)){        
-         sentData.motorState=waterMotor_AIN1.motorMode;
-        sentData.irrigatePlantWorking=false;
-        sentData.autoIrrigateState=false;
-        sentData.waterState=waterSensor.showState();
-        Serial.println("motor mode");//delete before prduction
-        Serial.println(waterMotor_AIN1.motorMode);//delete before prduction
-  }
-  else  sentData.motorState=waterMotor_AIN1.motorMode;     
-  sendtask();
 }
 
 void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {
@@ -305,7 +290,7 @@ void testingMotorWaterState (){
 //        Serial.println(waterMotor_AIN1.showReadingsAffter());//delete before prduction
         delay(50);//delete before prduction
         waterMotor_AIN1.countCheackTimeLower=0;
-        autoWatering.autoWateringState (false); 
+        autoIrrigateState=false;
         waterSensor.writingState(false);
         irrigatePlantOptionTime=0;
         sendMotorStartStopWorking ();
@@ -323,8 +308,8 @@ void testingMotorWaterState (){
 }
 void three_sendsSensors(){
     sentData.task=3;
-    moistureSensor.readingSetup();
-    lightSensor.readingSetup();
+   // moistureSensor.readingSetup();
+  //  lightSensor.readingSetup();
     sentData.moistureStatus = moistureSensor.readingResultsPercent();
     sentData.lightStatus= lightSensor.readingResultsPercent();   
 //    sentData.batteryStatus = batterySensor.readingResultsPercent();// need to creat 
@@ -332,19 +317,94 @@ void three_sendsSensors(){
 }
 void four_autoIrrigateState () {
   if(receiveData.autoIrrigateState == false){
-    autoWatering.autoWateringState(false);
+    autoIrrigateState=false;
     Serial.println("autoWatering disebel");//delete before prduction
   }
   if(receiveData.autoIrrigateState == true){
     waterMotor_AIN1.motor_current_Sub(receiveData.motorCurrentSub);//need to save it to the rtc memory
-    waterMotor_AIN1.readingsBefore= waterSensor.readingResults();
-    autoWatering.autoWateringState(true);
+    waterMotor_AIN1.readingsBefore= waterSensor.readingResults();//need to save it to the rtc memory
+    autoIrrigateState=true;//need to save it to the rtc memory
     Serial.println("autoWatering enabel");//delete before prduction
   }
-  sentData.autoIrrigateState= autoWatering.autoWateringEnable;
+  sentData.autoIrrigateState= autoIrrigateState;
   sendMotorStartStopWorking ();
 }//for tesk1
+void autoIrrigateStateTestLoop() {  
+    int timePass=millis();
+    int timePass2=millis();
+    int numberTests=10;
+    
+    Serial.println("working2");//delete before prduction
+   if(timePass-timeLength > timeDelayWaterPump)
+    { 
+      waterMotor_AIN1.motorModeChange(true);
+      sendMotorStartStopWorking ();
+      Serial.println("watering");//delete before prduction
+      if (timePass-timeLength> timeDelayWaterPump+2000)
+        {
+        waterMotor_AIN1.motorModeChange(false); 
+        sendMotorStartStopWorking ();
+        timeLength = timePass;
+        }       
+    }
 
+  if(timePass2-timeLength2 > timedelay_hum)
+    { 
+      soulMoistureDegree(moistureSensor.readingResultsParNumberTest(numberTests));//func that chacke the state of the soil  
+      timeLength2=timePass2;
+    }
+ }
+ 
+void soulMoistureDegree (int humAverage){//func that chacke the state of the soil
+    Serial.println(humAverage);//delete before prduction
+    if (humAverage>2900)
+      {
+       Serial.println(" :  soil is too dry needs special treatment"); //delete before prduction
+       timeDelayWaterPump=60000;// one minut = 60000
+       waterPumpOnTime=2000;
+      }
+    else if (humAverage<2900 && humAverage>2760)
+      {
+       Serial.println(" :  soil is dry"); //delete before prduction
+       timeDelayWaterPump=3600000; // one hour
+       waterPumpOnTime=5000;
+      }
+    else if(humAverage<2760)
+      {
+       Serial.println(" :  soil is moist no watering needed");  //delete before prduction
+       timeDelayWaterPump=86400000;//24hr water delay
+       waterPumpOnTime=5000;
+      }
+ }
+ 
+void six_motorStopStart() {
+    if(receiveData.motorState== false){
+      waterMotor_AIN1.motorModeChange(false);
+      sendMotorStartStopWorking ();
+    }
+    if(receiveData.motorState == true){
+      waterMotor_AIN1.motor_current_Sub(receiveData.motorCurrentSub);//need to save it to the rtc memory
+      waterMotor_AIN1.readingsBefore= waterSensor.readingResults();
+      delay(50);
+      waterMotor_AIN1.motorModeChange(true);
+      delay(100);
+      testingMotorWaterState ();  
+      sendMotorStartStopWorking ();
+     } 
+}
+void sendMotorStartStopWorking (){
+  sentData.task=4;
+  if ((waterMotor_AIN1.motorMode== false)&&(waterSensor.showState()==false)){        
+         sentData.motorState=waterMotor_AIN1.motorMode;
+        sentData.irrigatePlantWorking=false;
+        sentData.autoIrrigateState=false;
+        sentData.waterState=waterSensor.showState();
+        Serial.println("motor mode");//delete before prduction
+        Serial.println(waterMotor_AIN1.motorMode);//delete before prduction
+  }
+  else  sentData.motorState=waterMotor_AIN1.motorMode;     
+  sendtask();
+}
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){
   Serial.print("\r\nLast Packet Send Status:\t");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
@@ -371,6 +431,21 @@ void sendtask(){
   {
     Serial.println("Error sending the data");//delete before prduction
   } 
+}
+
+//Function that prints the reason by which ESP32 has been awaken from sleep
+void print_wakeup_reason(){
+  esp_sleep_wakeup_cause_t wakeup_reason;
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+  switch(wakeup_reason)
+  {
+    case 1  : Serial.println("Wakeup caused by external signal using RTC_IO"); break;
+    case 2  : Serial.println("Wakeup caused by external signal using RTC_CNTL"); break;
+    case 3  : Serial.println("Wakeup caused by timer"); break;
+    case 4  : Serial.println("Wakeup caused by touchpad"); break;
+    case 5  : Serial.println("Wakeup caused by ULP program"); break;
+    default : Serial.println("Wakeup was not caused by deep sleep"); break;
+  }
 }
 
  /*   byte macTry[6];

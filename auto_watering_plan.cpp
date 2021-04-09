@@ -9,9 +9,10 @@ void auto_watering_plan::testSetup(int pin) {
     }
 }
 
-void auto_watering_plan::autoWateringState (bool autoWateringEnable ){
-  this-> autoWateringEnable=autoWateringEnable;
-}
+//void auto_watering_plan::autoWateringState ( ){
+//         Serial.println(autoWateringEnable);//delete before prduction
+//  //this-> autoWateringEnable=autoWateringEnable;
+//}
 
 int auto_watering_plan::testLoop() {
   
@@ -26,7 +27,7 @@ int auto_watering_plan::testLoop() {
       Serial.println("watering");//delete before prduction
       if (timePass-timeLength> timeDelayWaterPump+2000)
         {
-        return 0  ; // turn the motor off by making the voltage LOW 
+        return 0; // turn the motor off by making the voltage LOW 
         this-> timeLength = timePass;
         }       
     }
@@ -37,7 +38,7 @@ int auto_watering_plan::testLoop() {
       soulMoistureDegree();//func that chacke the state of the soil  
      this-> timeLength2=timePass2;
     }
-  
+   return 0; 
  }
 
 
@@ -60,7 +61,6 @@ void auto_watering_plan::readingResults () {
   }
    Serial.println("working");//delete before prduction
        delay(50);
-
   // calculate the average:
   this-> humAverage = (total / numReadings); 
 }
@@ -73,20 +73,20 @@ void auto_watering_plan::soulMoistureDegree ()//func that chacke the state of th
     if (humAverage>2900)
       {
        Serial.println(" :  soil is too dry needs special treatment"); //delete before prduction
-       this-> timeDelayWaterPump=60000;// one minut = 60000
+       this->timeDelayWaterPump=60000;// one minut = 60000
        this->waterPumpOnTime=2000;
       }
     else if (humAverage<2900 && humAverage>2760)
       {
        Serial.println(" :  soil is dry"); //delete before prduction
-       this-> timeDelayWaterPump=3600000; // one hour
-       this-> waterPumpOnTime=5000;
+       this->timeDelayWaterPump=3600000; // one hour
+       this->waterPumpOnTime=5000;
       }
     else if(humAverage<2760)
       {
        Serial.println(" :  soil is moist no watering needed");  //delete before prduction
-       this-> timeDelayWaterPump=86400000;//24hr water delay
-       this-> waterPumpOnTime=5000;
+       this->timeDelayWaterPump=86400000;//24hr water delay
+       this->waterPumpOnTime=5000;
       }
  }
           

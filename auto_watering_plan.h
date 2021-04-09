@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+
 class auto_watering_plan 
 {
   public:
@@ -17,13 +18,13 @@ class auto_watering_plan
   float total = 0;                  // the running total
   int humAverage = 0;                // the average
   int pin;// reading pin
-  bool autoWateringEnable=false;  
+  bool autoWateringEnable1;  
     
   public:
     void testSetup(int pin) ;
     int testLoop();  
     void readingResults();
     void soulMoistureDegree ();
-    void autoWateringState (bool autoWateringEnable );
+//    void autoWateringState (bool autoWateringEnable );
 } ;
  #endif
