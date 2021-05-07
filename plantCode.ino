@@ -2,24 +2,34 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+//#include <WiFiAP.h>
+#include <esp_wifi.h>
 #include "eeprom_functions.h"
 #include "auto_watering_plan.h"
 #include "EOTAUpdate.h"
 #include "motor.h"
 #include "sensor.h"
+#include "config_wifi.h"
 
 
 #define EEPROM_SIZE 300
 #define EEPROM_plantIdNumber 200
-#define EEPROM_routerMacAddress 50
+#define EEPROM_hubMacAddress 150
+#define EEPROM_SSID 0
+#define EEPROM_PASS 50
+#define EEPROM_version 250
+#define EEPROM_wifiWorked 275
+#define EEPROM_updateWorked 285
 
 //sleeping defind
 #define uS_TO_S_FACTOR 1000000  //Conversion factor for micro seconds to seconds
 #define TIME_TO_SLEEP  4.9        //Time ESP32 will go to sleep (in seconds)
 #define TIME_A_WAKE 100
 #define TIME_WHEN_START 300
+RTC_DATA_ATTR int stopSleep=0;
 
- 
+// master number  FC:F5:C4:31:A4:7C
+
 //sleep memory 
 RTC_DATA_ATTR uint8_t macRouter[6];
 RTC_DATA_ATTR String plantIdNumber;
@@ -34,39 +44,44 @@ RTC_DATA_ATTR bool timeLength=0;
 RTC_DATA_ATTR bool timeLength2=0;
 
 //autoIrrigate
-  static const int numReadings = 10;
-  int humvalue[numReadings];     // the readings from the analog hum input
-  int humIndex = 0;              // the index of the current reading
-  float total = 0;               // the running total
-  int humAverage = 0;            // the average
-  int pin;                       // reading pin
+static const int numReadings = 10;
+int humvalue[numReadings];     // the readings from the analog hum input
+int humIndex = 0;              // the index of the current reading
+float total = 0;               // the running total
+int humAverage = 0;            // the average
+int pin;                       // reading pin
 
 
 //need to go RTCmemory
 //const char * const   VERSION_STRING = "0.1";
-  const unsigned short VERSION_NUMBER = 1;
-  const char * const   UPDATE_URL     = "http://morning-falls-78321.herokuapp.com/update.txt";
+const unsigned short VERSION_NUMBER = 1;
+RTC_DATA_ATTR bool updateWorked=false;//need to change before sending update
+const char * const   UPDATE_URL     = "http://morning-falls-78321.herokuapp.com/update.txt";
 //  const char * const   UPDATE_URL     = "http://0db0f6a29cd7.ngrok.io/update.txt";
-  EOTAUpdate updater(UPDATE_URL, VERSION_NUMBER);
-  
+EOTAUpdate updater(UPDATE_URL, VERSION_NUMBER); 
+RTC_DATA_ATTR bool tryUpdate=false;
 
+//mac address
 char macStr[18];
 uint8_t macGet[6];
   
 //sensor calling
-  sensor moistureSensor;//moisture sensor calling
-  sensor lightSensor;//moisture sensor calling
-  sensor waterSensor;//moisture sensor calling
+sensor moistureSensor;//moisture sensor calling
+sensor lightSensor;//moisture sensor calling
+sensor waterSensor;//moisture sensor calling
 
 //motor calling
-  motor waterMotor_AIN1 ;
+motor waterMotor_AIN1 ;
 //sleep memory motor
-  RTC_DATA_ATTR int motorCurrentSub;
-  RTC_DATA_ATTR int motorReadingsBefore;
+RTC_DATA_ATTR int motorCurrentSub;
+RTC_DATA_ATTR int motorReadingsBefore;
 
 //irrigatePlant difrent plan options  veribale
-  int irrigatePlantOptionTime;
-  int irrigatePlantOptionsTimeCheck;
+int irrigatePlantOptionTime;
+int irrigatePlantOptionsTimeCheck;
+
+//WIFI init
+Config_wifi wifi;
 
 //struct of veribales that are received from router
 typedef struct receiveDataStruct{ 
@@ -76,7 +91,8 @@ typedef struct receiveDataStruct{
   bool motorState;
   bool autoIrrigateState;
   int irrigatePlantOption;
-  unsigned short versuionNumber;
+  String UPDATE_URL;
+  unsigned short VERSION_NUMBER;
   String ssid;
   String pass;
  } receiveDataStruct;
@@ -93,11 +109,12 @@ typedef struct sentDataStruct{
   bool waterState=true;
   bool autoIrrigateState=false;
   bool irrigatePlantWorking=false;
-  bool massgeSuccess=false;
+  unsigned short VERSION_NUMBER;
+  bool massgeSuccess=true;
+  bool wifiWorked=true;
 } sentDataStruct;
 sentDataStruct sentData;
 
-RTC_DATA_ATTR int stopSleep=0;
 
 //functions 
 void one_plantInitialization();//Stores the mac address
@@ -107,8 +124,7 @@ void four_autoIrrigateState ();//Unabling auto Irrigate
 //void batteryStatus ();//Checks the battery state
 void six_motorStopStart();//start or stop the motor
 void testingMotorWaterState ();//cheacks if there is water
-void eight_checkUpdateProgrem();//update the progrem
-
+void eight_UpdateProgrem();//update the progrem
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);//sending data function
 void sendtask();
 void EspNowRegusterPeer();
@@ -116,7 +132,6 @@ void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len);//rec
 void swithTask( int task);// swith case of esp32 taskes 
 void swithIrrigatePlantOptionTask( int task);// swith case how mcuh to irrigate the plant 
 void sendMotorStartStopWorking ();//a function to send informasion that the motor strop working and the resuon
-
 void print_wakeup_reason();
 void autoIrrigateStateTestLoop();
 
@@ -125,7 +140,11 @@ void setup() {
   Serial.begin(115200);
   delay(50);
   //Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_STA);//WIFI_MODE_STA
+    //WiFi.mode(WIFI_MODE_STA);
+      //WiFi.mode(WIFI_AP_STA);
+  // build an if that will ceack and if the will cheack the version in the data base if it change 
+
   if((!*macRouter)||(!plantIdNumber==0)){
     EEPROM.begin(EEPROM_SIZE);
     if(!plantIdNumber==0){
@@ -156,13 +175,67 @@ void setup() {
     return;
   }
 
-   //Set timer to 5 seconds
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-      
   esp_now_register_recv_cb(onReceiveData);
   esp_now_register_send_cb(OnDataSent);
+//Set timer to 5 seconds
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);   
+
+  if (updateWorked==true){
+    Serial.println("update worked mother fucker");
+    delay(1000);
+    updateWorked=false;
+    sentData.task=8;
+    sentData.massgeSuccess=true;
+    sentData.plantIdNumber=plantIdNumber; 
+    sentData.VERSION_NUMBER=VERSION_NUMBER;
+    sendtask();
+  }
+  
+  if(tryUpdate==true){
+      WiFi.mode(WIFI_STA);//WIFI_MODE_STA
+      tryUpdate=false;
+//      String ssid="Y&t";
+//      String pass="0526855952";
+//       String ssidD=wifi.urldecode(ssid);
+//      String passD=wifi.urldecode(pass);
+      String ssidD=wifi.urldecode(readStringEEPROM(EEPROM_SSID));
+      String passD=wifi.urldecode(readStringEEPROM(EEPROM_PASS));
+      char ssidA[100];
+      char passA[100];
+      ssidD.toCharArray(ssidA, 99);
+      passD.toCharArray(passA, 99);
+      Serial.println("Trying to connect to " + ssidD + " with passwd:" + passD);  
+      WiFi.begin(ssidA, passA); 
+      delay(1000);   
+      int i = 100;
+      while (i-- > 0 && WiFi.status() != WL_CONNECTED)
+      {
+         // WiFi.begin(ssidA, passA);
+          delay(50);
+          Serial.print(".");//delete before prduction
+      }
+      if (WiFi.status() != WL_CONNECTED)
+      {      
+        Serial.println("Connection failed");//delete before prduction 
+        sentData.task=8;
+        sentData.massgeSuccess=true;
+        sentData.VERSION_NUMBER=VERSION_NUMBER;
+        sentData.wifiWorked=false;
+        updateWorked=false;
+        sendtask();
+      }
+      else if (WiFi.status() == WL_CONNECTED)
+      {
+        Serial.println("WiFi connected");//delete before prduction
+        Serial.println("Checking for updates. Remember to set the URL!");//delete before prduction
+        updateWorked=true; 
+  //      updater.CheckAndUpdate();
+        delay(30);
+        } 
+  }
 
 }
+
 
 void loop() {
    if (Serial.available() > 0) {//task that are recived from user
@@ -179,36 +252,45 @@ void loop() {
       waterMotor_AIN1.motorModeChange(false);
       sendMotorStartStopWorking ();
     }
-  }
-  
+  }  
       if((waterMotor_AIN1.motorMode== false)&&(millis()-timeAWakeStart>TIME_A_WAKE)&&(stopSleep==0)) {
       Serial.println(millis()-timeAWakeStart);// need to delet when it is started
       esp_deep_sleep_start();
       }
 }
 
-void eight_checkUpdateProgrem(){
-//  if(receiveData.versuionNumber>VERSION_NUMBER){
-//    WiFi.begin(receiveData.ssid, receiveData.pass);
-//    int i = 5;
-//    while (i-- > 0 && WiFi.status() != WL_CONNECTED)
-//    {
-//        delay(50);
-//        Serial.print(".");//delete before prduction
-//    }
-//    if (WiFi.status() != WL_CONNECTED)
-//    {
-//        Serial.println("Connection failed");//delete before prduction
-//    }
-//    else if (WiFi.status() == WL_CONNECTED)
-//    {
-//      Serial.println("WiFi connected");//delete before prduction
-//      WiFi.mode(WIFI_STA);
-//      Serial.println("Checking for updates. Remember to set the URL!");//delete before prduction
-//      updater.CheckAndUpdate();
-//      delay(30);
-//      }
+void eight_UpdateProgrem(){ 
+    sentData.massgeSuccess=true;
+    sentData.task=10;
+    sendtask(); 
+  if(receiveData.VERSION_NUMBER>=VERSION_NUMBER){
+    tryUpdate=true;
+    String macStrS=wifi.urldecode((String)macStr);
+    writeStringEEPROM(EEPROM_hubMacAddress,macStrS);
+    writeStringEEPROM(EEPROM_SSID,wifi.urldecode(receiveData.ssid));
+    writeStringEEPROM(EEPROM_PASS,wifi.urldecode(receiveData.pass));
+  }
+//  if(receiveData.VERSION_NUMBER==VERSION_NUMBER){
+//    tryUpdate=false;
+//    sentData.task=8;
+//    sentData.massgeSuccess=true;
+//    sentData.VERSION_NUMBER=VERSION_NUMBER;
+//    sentData.IsUpdating=false;
+//    sendtask();
 //  }
+  
+}
+
+void updateSendMACAddress(String MacAddressSring){
+  Serial.println("this is my mac address"+MacAddressSring);
+   char MacAddressChar[18];
+   MacAddressSring.toCharArray(MacAddressChar, 18);
+     char* ptr;
+     macRouter[0] = strtol( strtok(MacAddressChar,":"), &ptr, HEX );
+  for( uint8_t i = 1; i < 6; i++ )
+  {
+    macRouter[i] = strtol( strtok( NULL,":"), &ptr, HEX );
+  }
 }
 void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {
   stopSleep=1;
@@ -227,11 +309,10 @@ void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {
     if(!*macRouter){
           for (int i = 0; i < 6; i++) 
           macRouter[i]=(uint8_t)mac[i];
+          
     }
    swithTask(receiveData.task);
-   } 
-
-   
+   }    
 }
 void swithTask( int task){  
   switch(task) {
@@ -254,15 +335,14 @@ void swithTask( int task){
       six_motorStopStart();
     break;
     case 8:
-//      eight_checkUpdateProgrem();
+      eight_UpdateProgrem();
     break;
 }
 }
 void one_plantInitialization(){
    motorCurrentSub=receiveData.motorCurrentSub;
    sentData.task=1;
-   sentData.massgeSuccess=true;
-   EspNowRegusterPeer();
+  // EspNowRegusterPeer();
    sendtask();
 }
 void two_irrigatePlantOption(){
@@ -272,6 +352,7 @@ void two_irrigatePlantOption(){
   motorCurrentSub=receiveData.motorCurrentSub;
   motorReadingsBefore= waterSensor.readingResults();
   waterMotor_AIN1.motorModeChange(true);
+  sendMotorStartStopWorking ();   
   testingMotorWaterState (); 
   sendMotorStartStopWorking ();      
 }
@@ -324,7 +405,6 @@ void testingMotorWaterState (){
    }
 }
 void three_sendsSensors(){
-
     sentData.task=3;
    // moistureSensor.readingSetup();
   //  lightSensor.readingSetup();
@@ -411,7 +491,7 @@ void six_motorStopStart() {
 void sendMotorStartStopWorking (){
   sentData.task=4;
   if ((waterMotor_AIN1.motorMode== false)&&(waterSensor.showState()==false)){        
-         sentData.motorState=waterMotor_AIN1.motorMode;
+        sentData.motorState=waterMotor_AIN1.motorMode;
         sentData.irrigatePlantWorking=false;
         sentData.autoIrrigateState=false;
         sentData.waterState=waterSensor.showState();
@@ -424,7 +504,6 @@ void sendMotorStartStopWorking (){
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){
   Serial.print("\r\nLast Packet Send Status:\t");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-
     switch (status){
   case ESP_NOW_SEND_SUCCESS:
      Serial.println("Success");
@@ -437,8 +516,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){
    default:
        Serial.println("fail");
       break;
-  }
-  
+  } 
 }
 void EspNowRegusterPeer(){
   esp_now_peer_info_t peerInfo= {};
@@ -452,7 +530,7 @@ void EspNowRegusterPeer(){
   }
 }
 void sendtask(){
-  EspNowRegusterPeer();      
+  EspNowRegusterPeer();
   esp_err_t result = esp_now_send((uint8_t *)macRouter, (uint8_t *)&sentData, sizeof(sentData));
   if (result == ESP_OK)
   {
@@ -463,7 +541,6 @@ void sendtask(){
     Serial.println("Error sending the data");//delete before prduction
   } 
 }
-
 //Function that prints the reason by which ESP32 has been awaken from sleep
 void print_wakeup_reason(){
   esp_sleep_wakeup_cause_t wakeup_reason;
@@ -479,6 +556,7 @@ void print_wakeup_reason(){
   }
 }
 
+  
  /*   byte macTry[6];
   uint8_t * macGet;
   setMACToEEPROM(EEPROM_routerMacAddress,(uint8_t *)macRouter);
