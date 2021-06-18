@@ -12,7 +12,7 @@
 #include "config_wifi.h"
 
 
-#define EEPROM_SIZE 300
+#define EEPROM_SIZE 300 
 #define EEPROM_plantIdNumber 200
 #define EEPROM_hubMacAddress 150
 #define EEPROM_SSID 0
@@ -27,6 +27,8 @@
 #define TIME_A_WAKE 100
 #define TIME_WHEN_START 300
 RTC_DATA_ATTR int stopSleep=0;
+//int lastTaskRecived=0;
+int lastTime=0;
 
 // master number  FC:F5:C4:31:A4:7C
 
@@ -75,6 +77,7 @@ motor waterMotor_AIN1 ;
 //sleep memory motor
 RTC_DATA_ATTR int motorCurrentSub;
 RTC_DATA_ATTR int motorReadingsBefore;
+RTC_DATA_ATTR int sendMotorState=false;
 
 //irrigatePlant difrent plan options  veribale
 int irrigatePlantOptionTime;
@@ -243,7 +246,7 @@ void loop() {
   if(waterMotor_AIN1.motorMode== true)
       testingMotorWaterState (); 
   if(autoIrrigateState == true){
-    Serial.println("is enabel");
+      Serial.println("is enabel");
      autoIrrigateStateTestLoop();}
   if(irrigatePlantOptionTime != 0 ){
     if(millis()-irrigatePlantOptionsTimeCheck>=irrigatePlantOptionTime){
@@ -253,33 +256,86 @@ void loop() {
       sendMotorStartStopWorking ();
     }
   }  
-      if((waterMotor_AIN1.motorMode== false)&&(millis()-timeAWakeStart>TIME_A_WAKE)&&(stopSleep==0)) {
-      Serial.println(millis()-timeAWakeStart);// need to delet when it is started
+  
+  if((waterMotor_AIN1.motorMode== false)&&(millis()-timeAWakeStart>TIME_A_WAKE)&&(stopSleep==0)) {
+    //  Serial.println(millis()-timeAWakeStart);// need to delet when it is started
       esp_deep_sleep_start();
       }
+
+}
+void six_motorStopStart() {
+    if(receiveData.motorState== false){
+      waterMotor_AIN1.motorModeChange(false);
+        Serial.print("the motor status is:");//delete before prduction
+        delay(50);//delete before prduction
+        Serial.println(waterMotor_AIN1.showMotorModeChange());//delete before prduction
+        delay(50);//delete before prduction
+      sendMotorState=false;  
+      sendMotorStartStopWorking ();
+      
+    }
+    if((receiveData.motorState == true)&&(sendMotorState== false)){
+      motorCurrentSub=receiveData.motorCurrentSub;//need to save it to the rtc memory
+      waterSensor.readingSetup();
+      motorReadingsBefore= waterSensor.readingResults();
+      Serial.print("hall test resulte before motore start: ");//delete before prduction
+      Serial.println(motorReadingsBefore);//delete before prduction
+      delay(50);
+      waterMotor_AIN1.motorModeChange(true);
+      delay(100);
+      sendMotorState=true;  
+      sendMotorStartStopWorking ();
+      testingMotorWaterState ();
+     } 
 }
 
-void eight_UpdateProgrem(){ 
-    sentData.massgeSuccess=true;
-    sentData.task=10;
-    sendtask(); 
-  if(receiveData.VERSION_NUMBER>=VERSION_NUMBER){
-    tryUpdate=true;
-    String macStrS=wifi.urldecode((String)macStr);
-    writeStringEEPROM(EEPROM_hubMacAddress,macStrS);
-    writeStringEEPROM(EEPROM_SSID,wifi.urldecode(receiveData.ssid));
-    writeStringEEPROM(EEPROM_PASS,wifi.urldecode(receiveData.pass));
-  }
-//  if(receiveData.VERSION_NUMBER==VERSION_NUMBER){
-//    tryUpdate=false;
-//    sentData.task=8;
-//    sentData.massgeSuccess=true;
-//    sentData.VERSION_NUMBER=VERSION_NUMBER;
-//    sentData.IsUpdating=false;
-//    sendtask();
-//  }
-  
+void testingMotorWaterState (){
+   delay(50);
+   waterMotor_AIN1.countingTestTime=millis();   
+   if ((waterMotor_AIN1.countingTestTime-waterMotor_AIN1.startTestTime>waterMotor_AIN1.cheackTime)&&(digitalRead(waterMotor_AIN1.show_pin())== 1)){
+    Serial.print("hall test resulte after motore start: ");//delete before prduction
+    waterMotor_AIN1.readingsAffterInsert(waterSensor.readingOneResult());
+    delay(50);
+    Serial.println(waterMotor_AIN1.showReadingsAffter());//delete before prduction
+    delay(50);//delete before prduction
+    Serial.println(motorReadingsBefore-waterMotor_AIN1.showReadingsAffter());//delete before prduction
+    delay(50);//delete before prduction
+
+    if ((motorReadingsBefore-waterMotor_AIN1.showReadingsAffter()<motorCurrentSub)&&(motorReadingsBefore-waterMotor_AIN1.showReadingsAffter()>50))
+    {
+      waterMotor_AIN1.countCheackTimeLower++;
+      Serial.print("count");//delete before prduction
+      Serial.println(waterMotor_AIN1.countCheackTimeLower);//delete before prduction
+      if (waterMotor_AIN1.countCheackTimeLower>=waterMotor_AIN1.numberCheackTimeLower){
+        waterMotor_AIN1.motorModeChange(false);
+        Serial.println("motor Status 'off'");//delete before prduction
+//        Serial.println(waterMotor_AIN1.showReadingsAffter());//delete before prduction
+        delay(50);//delete before prduction
+        Serial.print("the motor status is:");//delete before prduction
+        delay(50);//delete before prduction
+        Serial.println(waterMotor_AIN1.showMotorModeChange());//delete before prduction
+        delay(50);//delete before prduction
+        waterMotor_AIN1.countCheackTimeLower=0;
+        autoIrrigateState=false;
+        waterSensor.writingState(false);
+        irrigatePlantOptionTime=0;
+        sendMotorState=false; 
+        delay(200);//delete before prduction 
+        sendMotorStartStopWorking();
+      }       
+    }
+    //else if (waterMotor_AIN1.readingsBefore-waterMotor_AIN1.showReadingsAffter ()>(motorCurrentSub)){waterMotor_AIN1.countCheackTimeLower=0; }
+    else {
+      waterMotor_AIN1.countCheackTimeLower=0;
+      waterSensor.writingState(true); 
+//      Serial.println("i am in else");//delete before prduction
+//      delay(100);
+    }
+    waterMotor_AIN1.startTestTime=millis();
+   }
 }
+
+
 
 void updateSendMACAddress(String MacAddressSring){
   Serial.println("this is my mac address"+MacAddressSring);
@@ -293,6 +349,7 @@ void updateSendMACAddress(String MacAddressSring){
   }
 }
 void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {
+  int lastTaskRecived=receiveData.task;
   stopSleep=1;
   Serial.print("Packet received from: ");
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -301,17 +358,27 @@ void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {
   memcpy(&receiveData, dataIncom, sizeof(receiveData));
   Serial.print("Packet received size: ");
   Serial.println(sizeof(receiveData));
-  Serial.println("print receive Data task" );
+  Serial.print ("print receive Data task " );
   Serial.println( receiveData.task);
   Serial.println( receiveData.plantIdNumber);
   sentData.plantIdNumber=plantIdNumber; 
   if(receiveData.plantIdNumber== plantIdNumber ){
     if(!*macRouter){
           for (int i = 0; i < 6; i++) 
-          macRouter[i]=(uint8_t)mac[i];
-          
+          macRouter[i]=(uint8_t)mac[i];   
     }
-   swithTask(receiveData.task);
+    
+   //need to creat a function that send if recived to stop the medness 
+  if (lastTime==0){
+    lastTime=millis();
+  }
+  Serial.print ("print receive Data task " );
+  Serial.println( lastTaskRecived);
+
+  //if(receiveData.task != lastTaskRecived){ 
+       ten_sendReciveMassage();
+       swithTask(receiveData.task);
+     // }
    }    
 }
 void swithTask( int task){  
@@ -368,41 +435,6 @@ void swithIrrigatePlantOptionTask( int irrigatePlantOption){
        irrigatePlantOptionTime=10000;
       break;
 }
-}
-void testingMotorWaterState (){
-   delay(50);
-   waterMotor_AIN1.countingTestTime=millis();   
-   if ((waterMotor_AIN1.countingTestTime-waterMotor_AIN1.startTestTime>waterMotor_AIN1.cheackTime)&&(digitalRead(waterMotor_AIN1.show_pin())== 1)){
-    Serial.print("hall test resulte after motore start: ");//delete before prduction
-    waterMotor_AIN1.readingsAffterInsert(waterSensor.readingOneResult());
-    delay(50);
-    Serial.println(waterSensor.readingOneResult());//delete before prduction
-    delay(50);//delete before prduction
-    Serial.println(motorReadingsBefore-waterMotor_AIN1.showReadingsAffter());//delete before prduction
-    if ((motorReadingsBefore-waterMotor_AIN1.showReadingsAffter()<motorCurrentSub)&&(motorReadingsBefore-waterMotor_AIN1.showReadingsAffter()>50))
-    {
-      waterMotor_AIN1.countCheackTimeLower++;
-      if (waterMotor_AIN1.countCheackTimeLower>=waterMotor_AIN1.numberCheackTimeLower){
-        waterMotor_AIN1.motorModeChange(false);
-        Serial.println("motor Status 'off'");//delete before prduction
-//        Serial.println(waterMotor_AIN1.showReadingsAffter());//delete before prduction
-        delay(50);//delete before prduction
-        waterMotor_AIN1.countCheackTimeLower=0;
-        autoIrrigateState=false;
-        waterSensor.writingState(false);
-        irrigatePlantOptionTime=0;
-        sendMotorStartStopWorking ();
-      }       
-    }
-    //else if (waterMotor_AIN1.readingsBefore-waterMotor_AIN1.showReadingsAffter ()>(motorCurrentSub)){waterMotor_AIN1.countCheackTimeLower=0; }
-    else {
-      waterMotor_AIN1.countCheackTimeLower=0;
-      waterSensor.writingState(true); 
-//      Serial.println("i am in else");//delete before prduction
-//      delay(100);
-    }
-    waterMotor_AIN1.startTestTime=millis();
-   }
 }
 void three_sendsSensors(){
     sentData.task=3;
@@ -472,22 +504,6 @@ void soilMoistureDegree (int humAverage){//func that chacke the state of the soi
        waterPumpOnTime=5000;
       }
  } 
-void six_motorStopStart() {
-
-    if(receiveData.motorState== false){
-      waterMotor_AIN1.motorModeChange(false);
-      sendMotorStartStopWorking ();
-    }
-    if(receiveData.motorState == true){
-      motorCurrentSub=receiveData.motorCurrentSub;//need to save it to the rtc memory
-      motorReadingsBefore= waterSensor.readingResults();
-      delay(50);
-      waterMotor_AIN1.motorModeChange(true);
-      delay(100);
-      testingMotorWaterState ();  
-      sendMotorStartStopWorking ();
-     } 
-}
 void sendMotorStartStopWorking (){
   sentData.task=4;
   if ((waterMotor_AIN1.motorMode== false)&&(waterSensor.showState()==false)){        
@@ -495,18 +511,47 @@ void sendMotorStartStopWorking (){
         sentData.irrigatePlantWorking=false;
         sentData.autoIrrigateState=false;
         sentData.waterState=waterSensor.showState();
-        Serial.println("motor mode");//delete before prduction
+        Serial.print("motor mode:");//delete before prduction
+        delay(50);
         Serial.println(waterMotor_AIN1.motorMode);//delete before prduction
+        delay(50);
   }
   else  sentData.motorState=waterMotor_AIN1.motorMode;     
+  sendtask();
+}
+void eight_UpdateProgrem(){ 
+    sentData.massgeSuccess=true;
+    sentData.task=10;
+    sendtask(); 
+  if(receiveData.VERSION_NUMBER>=VERSION_NUMBER){
+    tryUpdate=true;
+    String macStrS=wifi.urldecode((String)macStr);
+    writeStringEEPROM(EEPROM_hubMacAddress,macStrS);
+    writeStringEEPROM(EEPROM_SSID,wifi.urldecode(receiveData.ssid));
+    writeStringEEPROM(EEPROM_PASS,wifi.urldecode(receiveData.pass));
+  }
+//  if(receiveData.VERSION_NUMBER==VERSION_NUMBER){
+//    tryUpdate=false;
+//    sentData.task=8;
+//    sentData.massgeSuccess=true;
+//    sentData.VERSION_NUMBER=VERSION_NUMBER;
+//    sentData.IsUpdating=false;
+//    sendtask();
+//  }
+  
+}
+void ten_sendReciveMassage(){ 
+  sentData.task=10;
   sendtask();
 }
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){
   Serial.print("\r\nLast Packet Send Status:\t");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  delay(50);
     switch (status){
   case ESP_NOW_SEND_SUCCESS:
      Serial.println("Success");
+     delay(50);
     stopSleep=0;
    break;
   case ESP_NOW_SEND_FAIL:
@@ -535,6 +580,7 @@ void sendtask(){
   if (result == ESP_OK)
   {
     Serial.println("Sent with success");//delete before prduction
+    delay(100);
   }
   else
   {

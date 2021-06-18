@@ -13,7 +13,7 @@ class motor : public component
    int readingsAffter;//hall semsore reading affter motor start
    int readingsBefore;//hall semsore reading before motor start
    const int cheackTime=100;
-   const int numberCheackTimeLower=2;
+   const int numberCheackTimeLower=4;
    bool motorMode = false;
    
     

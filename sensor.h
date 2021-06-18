@@ -6,8 +6,8 @@ class sensor : public component
 {
   
   protected:
-    static const int numReadings = 105;// value to determine the size of the readings array.
-//    int readings[numReadings];       // the readings from the analog input
+    static const int numReadings = 100;// value to determine the size of the readings array.
+    int readings[numReadings];       // the readings from the analog input
     int readIndex = 0;               // the index of the current reading
     int total = 0;                   // the running total
     int averageResulte;             // the average resulte
@@ -15,7 +15,7 @@ class sensor : public component
     
     
   public:
-   // void readingSetup();// initialize all the readings to 0:
+    void readingSetup();// initialize all the readings to 0:
     int readingResultsPercent(); // reading results and sending the average result in percent
     int readingResults(); // reading results and sending the average result in int 
     int readingOneResult(); // reading one result and returning it

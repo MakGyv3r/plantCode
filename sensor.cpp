@@ -2,14 +2,14 @@
   #include "component.h"
 
 
-//  void sensor:: readingSetup(){
-//    for (int thisReading = 0; thisReading < numReadings; thisReading++) {
-//     this-> readings[thisReading] = 0;
-//      }
-//    }
+  void sensor:: readingSetup(){
+    for (int thisReading = 0; thisReading < numReadings; thisReading++) {
+     this-> readings[thisReading] = 0;
+      }
+    }
     
   int sensor:: readingResultsPercent(){
-    int readings[numReadings]={}; 
+    //int readings[numReadings]={}; 
     readIndex = 0;  
     while(readIndex<numReadings){
       // subtract the last reading:
@@ -39,7 +39,7 @@
   }
 
 int sensor::readingResults(){
-     int readings[numReadings]={}; 
+    // int readings[numReadings]={}; 
      readIndex = 0;  
     while(readIndex<numReadings){
       // subtract the last reading:
@@ -58,7 +58,7 @@ int sensor::readingResults(){
           averageResulte = (total / numReadings);
           this->total=0;
           // delay in between reads for stability
-//          readingSetup();
+          readingSetup();
           delay(30);
          return(averageResulte);
     

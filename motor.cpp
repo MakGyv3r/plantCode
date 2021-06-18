@@ -17,12 +17,12 @@
     }
     
   void motor::motorModeChange(bool Status){
-    if(Status)
-      on_comp();
-    else
-      off_comp();
-    this->motorMode=Status;
-  }
+        if(Status == true)
+          on_comp();
+        else
+          off_comp();
+        this->motorMode=Status;
+      }
     bool motor::showMotorModeChange(){
     return motorMode;
     }
