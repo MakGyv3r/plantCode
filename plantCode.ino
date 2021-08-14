@@ -27,7 +27,7 @@
 #define TIME_A_WAKE 100
 #define TIME_WHEN_START 300
 RTC_DATA_ATTR int stopSleep=0;
-//int lastTaskRecived=0;
+int lastTaskRecived=0;
 int lastTime=0;
 
 // master number  FC:F5:C4:31:A4:7C
@@ -255,8 +255,7 @@ void loop() {
       waterMotor_AIN1.motorModeChange(false);
       sendMotorStartStopWorking ();
     }
-  }  
-  
+  }    
   if((waterMotor_AIN1.motorMode== false)&&(millis()-timeAWakeStart>TIME_A_WAKE)&&(stopSleep==0)) {
     //  Serial.println(millis()-timeAWakeStart);// need to delet when it is started
       esp_deep_sleep_start();
@@ -289,54 +288,6 @@ void six_motorStopStart() {
      } 
 }
 
-void testingMotorWaterState (){
-   delay(50);
-   waterMotor_AIN1.countingTestTime=millis();   
-   if ((waterMotor_AIN1.countingTestTime-waterMotor_AIN1.startTestTime>waterMotor_AIN1.cheackTime)&&(digitalRead(waterMotor_AIN1.show_pin())== 1)){
-    Serial.print("hall test resulte after motore start: ");//delete before prduction
-    waterMotor_AIN1.readingsAffterInsert(waterSensor.readingOneResult());
-    delay(50);
-    Serial.println(waterMotor_AIN1.showReadingsAffter());//delete before prduction
-    delay(50);//delete before prduction
-    Serial.println(motorReadingsBefore-waterMotor_AIN1.showReadingsAffter());//delete before prduction
-    delay(50);//delete before prduction
-
-    if ((motorReadingsBefore-waterMotor_AIN1.showReadingsAffter()<motorCurrentSub)&&(motorReadingsBefore-waterMotor_AIN1.showReadingsAffter()>50))
-    {
-      waterMotor_AIN1.countCheackTimeLower++;
-      Serial.print("count");//delete before prduction
-      Serial.println(waterMotor_AIN1.countCheackTimeLower);//delete before prduction
-      if (waterMotor_AIN1.countCheackTimeLower>=waterMotor_AIN1.numberCheackTimeLower){
-        waterMotor_AIN1.motorModeChange(false);
-        Serial.println("motor Status 'off'");//delete before prduction
-//        Serial.println(waterMotor_AIN1.showReadingsAffter());//delete before prduction
-        delay(50);//delete before prduction
-        Serial.print("the motor status is:");//delete before prduction
-        delay(50);//delete before prduction
-        Serial.println(waterMotor_AIN1.showMotorModeChange());//delete before prduction
-        delay(50);//delete before prduction
-        waterMotor_AIN1.countCheackTimeLower=0;
-        autoIrrigateState=false;
-        waterSensor.writingState(false);
-        irrigatePlantOptionTime=0;
-        sendMotorState=false; 
-        delay(200);//delete before prduction 
-        sendMotorStartStopWorking();
-      }       
-    }
-    //else if (waterMotor_AIN1.readingsBefore-waterMotor_AIN1.showReadingsAffter ()>(motorCurrentSub)){waterMotor_AIN1.countCheackTimeLower=0; }
-    else {
-      waterMotor_AIN1.countCheackTimeLower=0;
-      waterSensor.writingState(true); 
-//      Serial.println("i am in else");//delete before prduction
-//      delay(100);
-    }
-    waterMotor_AIN1.startTestTime=millis();
-   }
-}
-
-
-
 void updateSendMACAddress(String MacAddressSring){
   Serial.println("this is my mac address"+MacAddressSring);
    char MacAddressChar[18];
@@ -349,7 +300,7 @@ void updateSendMACAddress(String MacAddressSring){
   }
 }
 void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {
-  int lastTaskRecived=receiveData.task;
+  
   stopSleep=1;
   Serial.print("Packet received from: ");
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -375,10 +326,14 @@ void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {
   Serial.print ("print receive Data task " );
   Serial.println( lastTaskRecived);
 
-  //if(receiveData.task != lastTaskRecived){ 
-       ten_sendReciveMassage();
+    ten_sendReciveMassage();
+    
+  
+    if(lastTaskRecived != 3){//if(receiveData.task != lastTaskRecived){ 
+        Serial.print ("i am doing  swithTask" );
        swithTask(receiveData.task);
-     // }
+     }
+     lastTaskRecived=receiveData.task;
    }    
 }
 void swithTask( int task){  
@@ -421,6 +376,7 @@ void two_irrigatePlantOption(){
   waterMotor_AIN1.motorModeChange(true);
   sendMotorStartStopWorking ();   
   testingMotorWaterState (); 
+  if(waterMotor_AIN1.motorMode== false)
   sendMotorStartStopWorking ();      
 }
 void swithIrrigatePlantOptionTask( int irrigatePlantOption){  
@@ -504,6 +460,51 @@ void soilMoistureDegree (int humAverage){//func that chacke the state of the soi
        waterPumpOnTime=5000;
       }
  } 
+void testingMotorWaterState (){
+   delay(50);
+   waterMotor_AIN1.countingTestTime=millis();   
+   if ((waterMotor_AIN1.countingTestTime-waterMotor_AIN1.startTestTime>waterMotor_AIN1.cheackTime)&&(digitalRead(waterMotor_AIN1.show_pin())== 1)){
+    Serial.print("hall test resulte after motore start: ");//delete before prduction
+    waterMotor_AIN1.readingsAffterInsert(waterSensor.readingOneResult());
+    delay(50);
+    Serial.println(waterMotor_AIN1.showReadingsAffter());//delete before prduction
+    delay(50);//delete before prduction
+    Serial.println(motorReadingsBefore-waterMotor_AIN1.showReadingsAffter());//delete before prduction
+    delay(50);//delete before prduction
+
+    if ((motorReadingsBefore-waterMotor_AIN1.showReadingsAffter()<motorCurrentSub)&&(motorReadingsBefore-waterMotor_AIN1.showReadingsAffter()>50))
+    {
+      waterMotor_AIN1.countCheackTimeLower++;
+      Serial.print("count");//delete before prduction
+      Serial.println(waterMotor_AIN1.countCheackTimeLower);//delete before prduction
+      if (waterMotor_AIN1.countCheackTimeLower>=waterMotor_AIN1.numberCheackTimeLower){
+        waterMotor_AIN1.motorModeChange(false);
+        Serial.println("motor Status 'off'");//delete before prduction
+//        Serial.println(waterMotor_AIN1.showReadingsAffter());//delete before prduction
+        delay(50);//delete before prduction
+        Serial.print("the motor status is:");//delete before prduction
+        delay(50);//delete before prduction
+        Serial.println(waterMotor_AIN1.showMotorModeChange());//delete before prduction
+        delay(50);//delete before prduction
+        waterMotor_AIN1.countCheackTimeLower=0;
+        autoIrrigateState=false;
+        waterSensor.writingState(false);
+        irrigatePlantOptionTime=0;
+        sendMotorState=false; 
+        delay(200);//delete before prduction 
+        sendMotorStartStopWorking();
+      }       
+    }
+    //else if (waterMotor_AIN1.readingsBefore-waterMotor_AIN1.showReadingsAffter ()>(motorCurrentSub)){waterMotor_AIN1.countCheackTimeLower=0; }
+    else {
+      waterMotor_AIN1.countCheackTimeLower=0;
+      waterSensor.writingState(true); 
+//      Serial.println("i am in else");//delete before prduction
+//      delay(100);
+    }
+    waterMotor_AIN1.startTestTime=millis();
+   }
+}
 void sendMotorStartStopWorking (){
   sentData.task=4;
   if ((waterMotor_AIN1.motorMode== false)&&(waterSensor.showState()==false)){        

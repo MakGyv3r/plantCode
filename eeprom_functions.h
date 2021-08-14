@@ -1,7 +1,7 @@
 #ifndef eeprom_functions
 #define eeprom_functions
 #include <EEPROM.h>
-#include <mac_eeprom.h>
+//#include <mac_eeprom.h>
 #define MAX_EEPROM_LEN 50 
 #define EEPROM_SIZE 300
 

@@ -4,7 +4,7 @@
   
   #include <WiFi.h> 
   #include <WiFiClient.h>
-  #include <WiFiAP.h>
+//  #include <WiFiAP.h>
   #include <EEPROM.h>
   #include <Arduino.h>
   

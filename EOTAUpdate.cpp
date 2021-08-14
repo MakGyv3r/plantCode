@@ -124,7 +124,7 @@ bool EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, const String &ur
 
     if (binMD5.length() > 0 && binMD5.length() != 32)
     {
-        log_e("The MD5 is not 32 characters long. Aborting update");
+//        log_e("The MD5 is not 32 characters long. Aborting update");
         return false;
     }
 
@@ -151,7 +151,7 @@ bool EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     bool isSSL = binURL.startsWith("https");
     if (_forceSSL && !isSSL)
     {
-        log_e("Trying to access a non-ssl URL on a secure update checker");
+//        log_e("Trying to access a non-ssl URL on a secure update checker");
         
         return false;
     }
@@ -166,7 +166,7 @@ bool EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     HTTPClient httpClient;
     if (!httpClient.begin(binURL))
     {
-        log_e("Error initializing client");
+//        log_e("Error initializing client");
         return false;
     }
 
@@ -188,7 +188,7 @@ bool EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     if (binMD5.length() > 0 &&
         !Update.setMD5(binMD5.c_str()))
     {
-            log_e("Failed to set the expected MD5");
+//            log_e("Failed to set the expected MD5");
             return false;
     }
 
@@ -196,14 +196,14 @@ bool EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
 
     if (payloadSize <= 0)
     {
-        log_e("Fetched binary has 0 size");
+//        log_e("Fetched binary has 0 size");
          
         return false;
     }
 
     if (!canBegin)
     {
-        log_e("Not enough space to begin OTA");
+//        log_e("Not enough space to begin OTA");
         
         return false;
     }
@@ -211,7 +211,7 @@ bool EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     const auto written = Update.writeStream(payloadStream);
     if (written != payloadSize)
     {
-        log_e("Error. Written %lu out of %lu", written, payloadSize);
+//        log_e("Error. Written %lu out of %lu", written, payloadSize);
         return false;
     }
 
@@ -219,7 +219,7 @@ bool EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     {
         StreamString errorMsg;
         Update.printError(errorMsg);
-        log_e("Error Occurred: %s", errorMsg.c_str());
+//        log_e("Error Occurred: %s", errorMsg.c_str());
         return false;
     }
 
@@ -227,7 +227,7 @@ bool EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     {
         StreamString errorMsg;
         Update.printError(errorMsg);
-        log_e("Undefined OTA update error: %s", errorMsg.c_str());
+//        log_e("Undefined OTA update error: %s", errorMsg.c_str());
         return false;
     }
 
