@@ -4,15 +4,16 @@
 #include <WiFiClient.h>
 //#include <WiFiAP.h>
 #include <esp_wifi.h>
+#include <ESP32httpUpdate.h>
 #include "eeprom_functions.h"
 #include "auto_watering_plan.h"
-#include "EOTAUpdate.h"
+//#include "EOTAUpdate.h"
 #include "motor.h"
 #include "sensor.h"
 #include "config_wifi.h"
 
 
-#define EEPROM_SIZE 300 
+#define EEPROM_SIZE 400 
 #define EEPROM_plantIdNumber 200
 #define EEPROM_hubMacAddress 150
 #define EEPROM_SSID 0
@@ -20,6 +21,7 @@
 #define EEPROM_version 250
 #define EEPROM_wifiWorked 275
 #define EEPROM_updateWorked 285
+#define EEPROM_updateURL 300
 
 //sleeping defind
 #define uS_TO_S_FACTOR 1000000  //Conversion factor for micro seconds to seconds
@@ -30,7 +32,10 @@ RTC_DATA_ATTR int stopSleep=0;
 int lastTaskRecived=0;
 int lastTime=0;
 
-// master number  FC:F5:C4:31:A4:7C
+// master number  3C:61:05:13:0B:10
+// product number FC:F5:C4:2F:A9:CC
+// product number FC:F5:C4:31:0C:14
+
 
 //sleep memory 
 RTC_DATA_ATTR uint8_t macRouter[6];
@@ -56,11 +61,11 @@ int pin;                       // reading pin
 
 //need to go RTCmemory
 //const char * const   VERSION_STRING = "0.1";
-const unsigned short VERSION_NUMBER = 1;
+const unsigned short VERSION_NUMBER = 2;
 RTC_DATA_ATTR bool updateWorked=false;//need to change before sending update
-const char * const   UPDATE_URL     = "http://morning-falls-78321.herokuapp.com/update.txt";
+const char * const   UPDATE_URL     = "http://aqueous-river-62632.herokuapp.com/update.txt";
 //  const char * const   UPDATE_URL     = "http://0db0f6a29cd7.ngrok.io/update.txt";
-EOTAUpdate updater(UPDATE_URL, VERSION_NUMBER); 
+//EOTAUpdate updater(UPDATE_URL, VERSION_NUMBER); 
 RTC_DATA_ATTR bool tryUpdate=false;
 
 //mac address
@@ -142,12 +147,13 @@ void setup() {
     //Initialize Serial Monitor
   Serial.begin(115200);
   delay(50);
+  Serial.println(VERSION_NUMBER);
   //Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);//WIFI_MODE_STA
-    //WiFi.mode(WIFI_MODE_STA);
-      //WiFi.mode(WIFI_AP_STA);
+  //WiFi.mode(WIFI_MODE_STA);
+  //WiFi.mode(WIFI_AP_STA);
   // build an if that will ceack and if the will cheack the version in the data base if it change 
-
+  
   if((!*macRouter)||(!plantIdNumber==0)){
     EEPROM.begin(EEPROM_SIZE);
     if(!plantIdNumber==0){
@@ -181,11 +187,12 @@ void setup() {
   esp_now_register_recv_cb(onReceiveData);
   esp_now_register_send_cb(OnDataSent);
 //Set timer to 5 seconds
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);   
+//  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);   
 
   if (updateWorked==true){
     Serial.println("update worked mother fucker");
-    delay(1000);
+    Serial.println(VERSION_NUMBER);
+    delay(100);
     updateWorked=false;
     sentData.task=8;
     sentData.massgeSuccess=true;
@@ -197,12 +204,9 @@ void setup() {
   if(tryUpdate==true){
       WiFi.mode(WIFI_STA);//WIFI_MODE_STA
       tryUpdate=false;
-//      String ssid="Y&t";
-//      String pass="0526855952";
-//       String ssidD=wifi.urldecode(ssid);
-//      String passD=wifi.urldecode(pass);
       String ssidD=wifi.urldecode(readStringEEPROM(EEPROM_SSID));
       String passD=wifi.urldecode(readStringEEPROM(EEPROM_PASS));
+      String updateUrl=wifi.urldecode(readStringEEPROM(EEPROM_updateURL));
       char ssidA[100];
       char passA[100];
       ssidD.toCharArray(ssidA, 99);
@@ -232,6 +236,7 @@ void setup() {
         Serial.println("WiFi connected");//delete before prduction
         Serial.println("Checking for updates. Remember to set the URL!");//delete before prduction
         updateWorked=true; 
+        t_httpUpdate_return ret = ESPhttpUpdate.update(updateUrl);
   //      updater.CheckAndUpdate();
         delay(30);
         } 
@@ -256,10 +261,10 @@ void loop() {
       sendMotorStartStopWorking ();
     }
   }    
-  if((waterMotor_AIN1.motorMode== false)&&(millis()-timeAWakeStart>TIME_A_WAKE)&&(stopSleep==0)) {
+ // if((waterMotor_AIN1.motorMode== false)&&(millis()-timeAWakeStart>TIME_A_WAKE)&&(stopSleep==0)) {
     //  Serial.println(millis()-timeAWakeStart);// need to delet when it is started
-      esp_deep_sleep_start();
-      }
+    //  esp_deep_sleep_start();
+   //   }
 
 }
 void six_motorStopStart() {
@@ -276,15 +281,21 @@ void six_motorStopStart() {
     if((receiveData.motorState == true)&&(sendMotorState== false)){
       motorCurrentSub=receiveData.motorCurrentSub;//need to save it to the rtc memory
       waterSensor.readingSetup();
+      Serial.print("waterSensor: ");//delete before prduction
+      Serial.print(waterSensor.readingResults());//delete before prduction
       motorReadingsBefore= waterSensor.readingResults();
       Serial.print("hall test resulte before motore start: ");//delete before prduction
       Serial.println(motorReadingsBefore);//delete before prduction
       delay(50);
       waterMotor_AIN1.motorModeChange(true);
       delay(100);
+      Serial.print("motor mode:");//delete before prduction
+        delay(50);
+        Serial.println(waterMotor_AIN1.motorMode);//delete before prduction
+        delay(50);
       sendMotorState=true;  
       sendMotorStartStopWorking ();
-      testingMotorWaterState ();
+      //testingMotorWaterState ();
      } 
 }
 
@@ -299,8 +310,7 @@ void updateSendMACAddress(String MacAddressSring){
     macRouter[i] = strtol( strtok( NULL,":"), &ptr, HEX );
   }
 }
-void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {
-  
+void onReceiveData(const uint8_t * mac, const uint8_t *dataIncom, int len) {  
   stopSleep=1;
   Serial.print("Packet received from: ");
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -462,7 +472,7 @@ void soilMoistureDegree (int humAverage){//func that chacke the state of the soi
  } 
 void testingMotorWaterState (){
    delay(50);
-   waterMotor_AIN1.countingTestTime=millis();   
+   waterMotor_AIN1.countingTestTime=millis(); 
    if ((waterMotor_AIN1.countingTestTime-waterMotor_AIN1.startTestTime>waterMotor_AIN1.cheackTime)&&(digitalRead(waterMotor_AIN1.show_pin())== 1)){
     Serial.print("hall test resulte after motore start: ");//delete before prduction
     waterMotor_AIN1.readingsAffterInsert(waterSensor.readingOneResult());
@@ -517,7 +527,13 @@ void sendMotorStartStopWorking (){
         Serial.println(waterMotor_AIN1.motorMode);//delete before prduction
         delay(50);
   }
-  else  sentData.motorState=waterMotor_AIN1.motorMode;     
+  else {
+  sentData.motorState=waterMotor_AIN1.motorMode;
+          Serial.print("motor pin:");//delete before prduction
+        delay(50);
+        Serial.println(digitalRead(27));//delete before prduction
+        delay(50);    
+  } 
   sendtask();
 }
 void eight_UpdateProgrem(){ 
@@ -530,6 +546,7 @@ void eight_UpdateProgrem(){
     writeStringEEPROM(EEPROM_hubMacAddress,macStrS);
     writeStringEEPROM(EEPROM_SSID,wifi.urldecode(receiveData.ssid));
     writeStringEEPROM(EEPROM_PASS,wifi.urldecode(receiveData.pass));
+    writeStringEEPROM(EEPROM_updateURL,wifi.urldecode(receiveData.UPDATE_URL));
   }
 //  if(receiveData.VERSION_NUMBER==VERSION_NUMBER){
 //    tryUpdate=false;
