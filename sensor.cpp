@@ -29,13 +29,14 @@
           this->total=0;
           Serial.println( numReadings);
           Serial.print( "averageResulte in presentage:");
-          Serial.println( (100-averageResulte*100/4095));
+          Serial.println( (100-averageResulte*numReadings/4095));
           Serial.print( "averageResulte");
           Serial.println( (averageResulte));
           // delay in between reads for stability
 //          readingSetup();
           delay(30);
-         return(100 - averageResulte*100/4095);
+         //return(100 - averageResulte*numReadings/4095);// in %
+         return(averageResulte);
   }
 
   int sensor::readingResults(){

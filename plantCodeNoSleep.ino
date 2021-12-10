@@ -24,7 +24,7 @@
 #define EEPROM_wifiWorked 275
 #define EEPROM_updateWorked 285
 #define EEPROM_updateURL 300
-
+ 
 //sleeping defind
 //#define uS_TO_S_FACTOR 1000000  //Conversion factor for micro seconds to seconds
 //#define TIME_TO_SLEEP  4.9        //Time ESP32 will go to sleep (in seconds)
@@ -62,8 +62,8 @@ int pin;                       // reading pin
 
 
 //need to go RTCmemory
-//const char * const   VERSION_STRING = "0.1";
-const unsigned short versuionNumber = 1;
+//const char * const   VERSION_STRING = "0.1.1";
+const unsigned short versuionNumber = 2;
 RTC_DATA_ATTR bool updateWorked=false;//need to change before sending update
 const char * const   UPDATE_URL     = "http://aqueous-river-62632.herokuapp.com/plantproduct.bin";
 //  const char * const   UPDATE_URL     = "http://0db0f6a29cd7.ngrok.io/update.txt";
@@ -368,18 +368,10 @@ void two_irrigatePlantOption(){
   sendMotorStartStopWorking ();      
 }
 void swithIrrigatePlantOptionTask( int irrigatePlantOption){  
-  switch(irrigatePlantOption) {
-    case 1:
-       irrigatePlantOptionTime=3000;
-      break;
-    case 2:
-       irrigatePlantOptionTime=4000;
-      break;
-    case 3:
-       irrigatePlantOptionTime=10000;
-      break;
+       irrigatePlantOptionTime=irrigatePlantOption*1000;
 }
 }
+
 void three_sendsSensors(){
     sentData.task=3;
     moistureSensor.readingSetup();
