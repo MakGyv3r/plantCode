@@ -48,7 +48,7 @@ void auto_watering_plan::readingResults () {
   // read from the sensor:
   this->humvalue[humIndex] = analogRead(pin);
   Serial.println(humvalue[humIndex]);//delete before prduction
-  delay(20);
+  delay(30);
   // add the reading to the total:
  this-> total = total + humvalue[humIndex];
   // advance to the next position in the array:

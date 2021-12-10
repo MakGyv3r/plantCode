@@ -8,7 +8,7 @@ class auto_watering_plan
 {
   public:
   int timeDelayWaterPump=3600000; // one hour= 3600000 one minut = 60000
-  int timedelay_hum=5000;
+  int timedelay_hum=10000;
   int waterPumpOnTime=0;
   int timeLength=0,timeLength2=0;
   //hum sensor

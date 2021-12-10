@@ -38,7 +38,7 @@
          return(100 - averageResulte*100/4095);
   }
 
-int sensor::readingResults(){
+  int sensor::readingResults(){
     // int readings[numReadings]={}; 
      readIndex = 0;  
     while(readIndex<numReadings){
@@ -46,7 +46,7 @@ int sensor::readingResults(){
       total = total - readings[readIndex];
       // read from the sensor:
       readings[readIndex] = analogRead(pin);
-     // Serial.println(readings[readIndex]);
+      //Serial.println(readings[readIndex]);
       // add the reading to the total:
       total = total + readings[readIndex];
       // advance to the next position in the array:
@@ -66,6 +66,7 @@ int sensor::readingResults(){
   
   int sensor::readingResultsParNumberTest(int numberTests){
     int specialreading[numberTests]={};
+      
      readIndex = 0;  
     while(readIndex<numberTests){
       // subtract the last reading:
@@ -81,7 +82,7 @@ int sensor::readingResults(){
       // send it to the computer as ASCII digits
     delay(30); 
     }
-          averageResulte = (total / numReadings);
+          averageResulte = (total / numberTests);
           this->total=0;
           // delay in between reads for stability
           delay(30);

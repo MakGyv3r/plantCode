@@ -10,10 +10,9 @@ class motor : public component
    int  startTestTime;
    int  countingTestTime;
    int countCheackTimeLower=0;
-   int readingsAffter;//hall semsore reading affter motor start
-   int readingsBefore;//hall semsore reading before motor start
+   float readingCurrent=0;
    const int cheackTime=100;
-   const int numberCheackTimeLower=4;
+   const int numberCheackTimeLower=3;
    bool motorMode = false;
    
     
@@ -23,8 +22,8 @@ class motor : public component
   public:
     void motor_current_Sub(int Sub);
     int show_motor_Current_Sub();
-    void readingsAffterInsert(int reading);
-    int showReadingsAffter ();
+    void readingCurrentInsert(float reading);
+    float showReadingCurrent ();
     void motorModeChange(bool Status);
     bool showMotorModeChange();
 }; 

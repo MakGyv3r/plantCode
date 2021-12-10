@@ -9,11 +9,11 @@
   int motor::show_motor_Current_Sub (){
     return motorCurrentSub;
     }
-  void motor::readingsAffterInsert(int reading){
-    this->readingsAffter = reading;
+  void motor::readingCurrentInsert(float reading){
+    this->readingCurrent = reading;
     }   
-  int motor::showReadingsAffter(){
-    return readingsAffter;
+  float motor::showReadingCurrent(){
+    return readingCurrent;
     }
     
   void motor::motorModeChange(bool Status){

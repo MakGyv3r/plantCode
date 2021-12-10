@@ -2,7 +2,7 @@
 
 //new wifi configuration
 
-#define EEPROM_SIZE 300
+#define EEPROM_SIZE 400
 #define EEPROM_SSID 0
 #define EEPROM_PASS 50
 #define EEPROM_ID 200
