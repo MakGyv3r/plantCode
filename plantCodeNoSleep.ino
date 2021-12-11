@@ -101,7 +101,7 @@ typedef struct receiveDataStruct{
   int motorCurrentSub;
   bool motorState;
   bool autoIrrigateState;
-  int irrigatePlantOption;
+  int irrigatePlantOption;//the amount of time the motor should work
   String UPDATE_URL;
   int versuionNumber;
   String ssid;
@@ -246,8 +246,8 @@ void setup() {
 }
 
 void loop() {
-   if (Serial.available() > 0) {//task that are recived from user
-    stopSleep = Serial.readString().toInt() ;}
+//   if (Serial.available() > 0) {//task that are recived from user
+//    stopSleep = Serial.readString().toInt() ;}
   if(waterMotor_AIN1.motorMode== true)
       testingMotorWaterState (); 
   if(autoIrrigateState == true){
@@ -370,8 +370,6 @@ void two_irrigatePlantOption(){
 void swithIrrigatePlantOptionTask( int irrigatePlantOption){  
        irrigatePlantOptionTime=irrigatePlantOption*1000;
 }
-}
-
 void three_sendsSensors(){
     sentData.task=3;
     moistureSensor.readingSetup();
