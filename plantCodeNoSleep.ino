@@ -148,7 +148,7 @@ sentDataStruct sentData;
 
 //functions 
 void one_plantInitialization();//Stores the mac address
-void two_irrigatePlantOptio();//A program that irrigate the plant accurding to spcifice times
+void two_irrigatePlantOption();//A program that irrigate the plant accurding to spcifice times
 void three_sendsSensors();//Checks the status of the sensors and gives update
 void four_autoIrrigateState ();//Unabling auto Irrigate 
 //void batteryStatus ();//Checks the battery state
@@ -386,7 +386,7 @@ void two_irrigatePlantOption(){
   sendMotorStartStopWorking ();      
 }
 void swithIrrigatePlantOptionTask( int irrigatePlantOption){  
-       irrigatePlantOptionTime=irrigatePlantOption*1000;
+       irrigatePlantOptionTime=irrigatePlantOption;
 }
 void three_sendsSensors(){
     sentData.task=3;
