@@ -271,6 +271,7 @@ void loop() {
   if(autoIrrigateState == true){
       autoIrrigateStateTestLoop();}
   if(irrigatePlantOptionTime != 0 ){
+    //Serial.println(millis()-irrigatePlantOptionsTimeCheck);//delete before prduction
     if(millis()-irrigatePlantOptionsTimeCheck>=irrigatePlantOptionTime){
       irrigatePlantOptionTime=0;
       sentData.irrigatePlantWorking=false;
@@ -376,6 +377,7 @@ void one_plantInitialization(){
 }
 void two_irrigatePlantOption(){
   swithIrrigatePlantOptionTask(receiveData.irrigatePlantOption);
+  Serial.println(receiveData.irrigatePlantOption);//delete before prduction
   sentData.irrigatePlantWorking=true;
   irrigatePlantOptionsTimeCheck=millis();
   motorCurrentSub=receiveData.motorCurrentSub;
@@ -387,6 +389,8 @@ void two_irrigatePlantOption(){
 }
 void swithIrrigatePlantOptionTask( int irrigatePlantOption){  
        irrigatePlantOptionTime=irrigatePlantOption;
+
+
 }
 void three_sendsSensors(){
     sentData.task=3;
@@ -442,7 +446,6 @@ void autoIrrigateStateTestLoop() {
       delay(50);
       soilMoistureDegree(moistureSensor.readingResultsParNumberTest(numReadings));//func that chacke the state of the soil  
       timeLength2=timePass2;
-      sendMotorStartStopWorking ();
     }
     
 
