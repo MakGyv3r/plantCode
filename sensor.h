@@ -6,7 +6,7 @@ class sensor : public component
 {
   
   protected:
-    static const int numReadings = 20;// value to determine the size of the readings array.
+    static const int numReadings = 100;// value to determine the size of the readings array.
     int readings[numReadings];       // the readings from the analog input
     int readIndex = 0;               // the index of the current reading
     int total = 0;                   // the running total

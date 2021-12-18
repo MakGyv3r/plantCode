@@ -35,8 +35,8 @@
           // delay in between reads for stability
 //          readingSetup();
           delay(30);
-         //return(100 - averageResulte*numReadings/4095);// in %
-         return(averageResulte);
+         return(100 - averageResulte*100/4095);// in %
+         //return(averageResulte);
   }
 
   int sensor::readingResults(){
