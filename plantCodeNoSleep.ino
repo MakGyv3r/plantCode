@@ -44,8 +44,17 @@ RTC_DATA_ATTR int timeAWakeStart;
 
 //sleep memory auto Irrigate
 RTC_DATA_ATTR bool autoIrrigateState=false;
-int timeDelayWaterPump=3600000;
+//sleep memory auto Irrigate
+int timeDelayWaterPumpHigh=86400000;
+int timeDelayWaterPumpMid=3600000;
+int timeDelayWaterPumpLow=60000;
 int timedelay_hum=5000;
+int waterPumpOnTimeHigh=5000;
+int waterPumpOnTimeMid=5000;
+int waterPumpOnTimeLow=2000;
+int humLowLevel=2900;
+int humHighLevel=2760;
+int timeDelayWaterPump=3600000;
 int waterPumpOnTime=0;
 int timeLength=0;
 int timeLength2=0;
@@ -101,13 +110,22 @@ typedef struct receiveDataStruct{
   int motorCurrentSub;
   bool motorState;
   bool autoIrrigateState;
+  int timeDelayWaterPumpHigh;
+  int timeDelayWaterPumpMid;
+  int timeDelayWaterPumpLow;
+  int timedelay_hum;
+  int waterPumpOnTimeHigh;
+  int waterPumpOnTimeMid;
+  int waterPumpOnTimeLow;
+  int humLowLevel;
+  int humHighLevel;
   int irrigatePlantOption;//the amount of time the motor should work
   String UPDATE_URL;
   int versuionNumber;
   String ssid;
   String pass;
  } receiveDataStruct;
-receiveDataStruct receiveData;
+receiveDataStruct receiveData; 
 
 //struct of veribales that are sent to the router
 typedef struct sentDataStruct{ 
@@ -393,6 +411,15 @@ void four_autoIrrigateState () {
   if(receiveData.autoIrrigateState == true){
     autoIrrigateState=true;//need to save it to the rtc memory
     waterSensor.writingState(true); 
+    timeDelayWaterPumpHigh=receiveData.timeDelayWaterPumpHigh;
+    timeDelayWaterPumpMid=receiveData.timeDelayWaterPumpMid;
+    timeDelayWaterPumpLow=receiveData.timeDelayWaterPumpLow;
+    timedelay_hum=receiveData.timedelay_hum;
+    waterPumpOnTimeHigh=receiveData.waterPumpOnTimeHigh;//5000
+    waterPumpOnTimeMid=receiveData.waterPumpOnTimeMid;//5000
+    waterPumpOnTimeLow=receiveData.waterPumpOnTimeLow;//2000
+    humLowLevel=receiveData.humLowLevel;
+    humHighLevel=receiveData.humLowLevel;
     Serial.println("autoWatering enabel");//delete before prduction
   }
   
@@ -402,7 +429,7 @@ void four_autoIrrigateState () {
   timeLength = timePass;
 
   sentData.autoIrrigateState= autoIrrigateState;
-  sendMotorStartStopWorking ();
+
 }//for tesk1
 void autoIrrigateStateTestLoop() {      
   //Serial.println("working2");//delete before prduction
@@ -415,6 +442,7 @@ void autoIrrigateStateTestLoop() {
       delay(50);
       soilMoistureDegree(moistureSensor.readingResultsParNumberTest(numReadings));//func that chacke the state of the soil  
       timeLength2=timePass2;
+      sendMotorStartStopWorking ();
     }
     
 
@@ -422,41 +450,45 @@ void autoIrrigateStateTestLoop() {
     { 
       waterMotor_AIN1.motorModeChange(true);
       delay(50);
+      sendMotorStartStopWorking ();
       Serial.println("watering ");//delete before prduction
       if (timePass-timeLength> timeDelayWaterPump+waterPumpOnTime)
         {
         waterMotor_AIN1.motorModeChange(false);
         delay(50); 
+        sendMotorStartStopWorking ();
         timeLength = timePass;
         }       
     }
     
  }
+
 void soilMoistureDegree (int humAverage){//func that chacke the state of the soil
     Serial.println(humAverage);//delete before prduction
-    if (humAverage>2900)
+    if (humAverage>humLowLevel)//2900
       {
        Serial.println(" :  soil is too dry needs special treatment"); //delete before prduction
        delay(30);
-       timeDelayWaterPump=60000;// one minut = 60000
-       waterPumpOnTime=2000;
-       
+       timeDelayWaterPump=timeDelayWaterPumpLow;// one minut = 60000
+       waterPumpOnTime=waterPumpOnTimeLow;//2000
       }
-    else if (humAverage<2900 && humAverage>2760)
-      {
-       Serial.println(" :  soil is dry"); //delete before prduction
-       delay(30);
-       timeDelayWaterPump=3600000; // one hour
-       waterPumpOnTime=5000;
-      }
-    else if(humAverage<2760)
-      {
-       Serial.println(" :  soil is moist no watering needed");  //delete before prduction
-       delay(30);
-       timeDelayWaterPump=86400000;//24hr water delay
-       waterPumpOnTime=5000;
-      }
+      else if (humAverage<humLowLevel && humAverage>humHighLevel)//2900 ,2760
+        {
+         Serial.println(" :  soil is dry"); //delete before prduction
+         delay(30);
+         timeDelayWaterPump=timeDelayWaterPumpMid; //3600000 one hour
+         waterPumpOnTime=waterPumpOnTimeMid;//5000
+        }
+        
+      else if(humAverage<humHighLevel)//2760
+        {
+         Serial.println(" :  soil is moist no watering needed");  //delete before prduction
+         delay(30);
+         timeDelayWaterPump=timeDelayWaterPumpHigh;//86400000; 24hr water delay
+         waterPumpOnTime=waterPumpOnTimeHigh;//5000
+        }
  } 
+ 
 void testingMotorWaterState (){
 //   delay(50);
    waterMotor_AIN1.countingTestTime=millis(); 
